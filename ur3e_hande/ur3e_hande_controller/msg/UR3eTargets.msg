@@ -1,0 +1,7 @@
+float64[6] targets
+geometry_msgs/Pose redBall1_pickPose
+geometry_msgs/Pose redBall2_pickPose
+geometry_msgs/Pose blueBall1_pickPose
+geometry_msgs/Pose blueBall2_pickPose
+geometry_msgs/Pose redBall_placePose
+geometry_msgs/Pose blueBall_placePose

@@ -1,0 +1,2 @@
+std_msgs/String group
+moveit_msgs/RobotTrajectory trajectory
