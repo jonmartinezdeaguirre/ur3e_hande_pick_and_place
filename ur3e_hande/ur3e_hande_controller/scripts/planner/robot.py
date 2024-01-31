@@ -11,7 +11,6 @@ class Robot:
         self.joints.name = self.joint_names
 
         self.state = RobotState()
-
         self.pose = Pose()
 
     def update(self, joint_positions, pose=None):

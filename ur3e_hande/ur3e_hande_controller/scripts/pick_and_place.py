@@ -26,8 +26,6 @@ class UnityPickAndPlace(Planner):
 
     def add_trajectory(self, pose_type, pose):
         trajectory = self.get_robot_trajectory('ptp', pose_type, pose)
-        self.ur3e_hande.update_robot(trajectory.joint_trajectory.points[-1].positions)
-
         self.response.trajectories.append(trajectory)
 
     def plan_pick(self, position) -> None:

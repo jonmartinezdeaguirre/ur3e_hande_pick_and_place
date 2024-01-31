@@ -27,12 +27,14 @@ class Planner:
         
         if not trajectory:
             return
-        
+
         return trajectory[1]
     
-    def plan_lin(self, move_group: MoveGroupCommander, start_pose, pose):
-        waypoints = [start_pose, pose]
-        trajectory = move_group.compute_cartesian_path(waypoints, 0.01, 0.0)
+    def plan_lin(self, move_group: MoveGroupCommander, robot, pose):
+        move_group.set_start_state(robot.state)
+
+        waypoints = [robot.pose, pose]
+        trajectory = move_group.compute_cartesian_path(waypoints, 0.005, 0.0)
         
         if not trajectory:
             return
@@ -41,15 +43,20 @@ class Planner:
     
     def get_robot_trajectory(self, move_type: str, pose_type: str, pose) -> RobotTrajectory:
         if move_type.lower() == 'ptp':
-            return self.plan_ptp(self.move_group_arm, self.ur3e_hande.robot.state, pose_type, pose)
+            trajectory = self.plan_ptp(self.move_group_arm, self.ur3e_hande.robot.state, pose_type, pose)
 
         if move_type.lower() == 'lin':
-            return self.plan_lin(self.move_group_arm, self.ur3e_hande.robot.pose, pose)
+            trajectory = self.plan_lin(self.move_group_arm, self.ur3e_hande.robot, pose)
+        
+        self.ur3e_hande.update_robot(trajectory.joint_trajectory.points[-1].positions, pose)
 
-        return
+        return trajectory
 
     def get_gripper_trajectory(self, pose_type, pose) -> RobotTrajectory:
-        return self.plan_ptp(self.move_group_gripper, self.ur3e_hande.gripper.state, pose_type, pose)
+        trajectory = self.plan_ptp(self.move_group_gripper, self.ur3e_hande.gripper.state, pose_type, pose)
+        self.ur3e_hande.update_gripper(trajectory.joint_trajectory.points[-1].positions)
+        
+        return trajectory
 
     def reset(self):
         self.ur3e_hande.reset()

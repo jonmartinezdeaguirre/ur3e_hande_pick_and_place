@@ -3,11 +3,12 @@
 import rospy
 
 import sys
+import time
 import copy
 import moveit_commander
 
 from std_msgs.msg import String
-from geometry_msgs.msg import Quaternion
+from geometry_msgs.msg import Quaternion, Pose
 from moveit_msgs.msg import OrientationConstraint
 from ur3e_hande_controller.msg import UR3eTarget, UR3eTrajectoryRTA
 from ur3e_hande_controller.srv import UR3ePickAndPlaceRTA, UR3ePickAndPlaceRTARequest, UR3ePickAndPlaceRTAResponse
@@ -15,30 +16,30 @@ from ur3e_hande_controller.srv import UR3ePickAndPlaceRTA, UR3ePickAndPlaceRTARe
 from settings_rta import *
 from planner import Planner
 
-class UnityPickAndPlaceRTA(Planner):
+class Test(Planner):
     def __init__(self) -> None:
-        super(UnityPickAndPlaceRTA, self).__init__()
+        super(Test, self).__init__()
 
-    def start_server(self) -> None:
+    def start(self):
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node('ur3e_moveit_server')
-
-        rospy.Service('ur3e_moveit', UR3ePickAndPlaceRTA, self.run)
-        rospy.spin()
+        self.run()
+        moveit_commander.roscpp_shutdown()
 
     def add_trajectory(self, group, pose_type, pose, move_type="ptp"):
         trajectory_msg = UR3eTrajectoryRTA()
 
         if group == 'arm':
             trajectory = self.get_robot_trajectory(move_type, pose_type, pose)
+            # self.ur3e_hande.update_robot(trajectory.joint_trajectory.points[-1].positions, pose)
             trajectory_msg.group = String('arm')
 
         if group == 'gripper':
             trajectory = self.get_gripper_trajectory(pose_type, pose)
+            self.ur3e_hande.update_gripper(trajectory.joint_trajectory.points[-1].positions)
             trajectory_msg.group = String('gripper')
 
         trajectory_msg.trajectory = trajectory
-        self.response.trajectories.append(trajectory_msg)
 
     def check_limits(self, ball_position, basket_limits):
         x_in_limits = basket_limits['x'][0] < ball_position.x and ball_position.x < basket_limits['x'][1]
@@ -96,29 +97,39 @@ class UnityPickAndPlaceRTA(Planner):
         self.add_trajectory('gripper', 'name', gripper_action)
         self.add_trajectory('arm', 'pose', offset_z_position, 'lin')
 
-    def run(self, req: UR3ePickAndPlaceRTARequest) -> UR3ePickAndPlaceRTAResponse:
+    def run(self):
         self.reset()
-        self.response = UR3ePickAndPlaceRTAResponse()
-        self.ur3e_hande.update(req.state.joints, req.state.fingers)
-        
-        ball_in_correct_basket, ball_in_incorrect_basket = self.check_ball_position(req.ball)
-        
-        if ball_in_correct_basket:
-            self.response.trajectories = [UR3eTrajectoryRTA()]
-            self.response.trajectories[0].group = String("none")
-            return self.response
+        self.ur3e_hande.robot.state = self.move_group_arm.get_current_state()
+        self.ur3e_hande.gripper.state = self.move_group_gripper.get_current_state()
 
-        self.plan_ball_trajectory(req.ball, ball_in_incorrect_basket)
-        self.plan_basket_trajectory(req.basket.pose, req.basket.color.data, 'gripper_open')
+        self.ur3e_hande.robot.pose = self.move_group_arm.get_current_pose("hande_left_finger").pose
 
-        self.move_group_arm.clear_pose_targets()
-        self.move_group_gripper.clear_pose_targets()
-        
-        return self.response
+        time.sleep(5)
+
+        pose1 = Pose()
+        pose1.position.x = 0.3
+        pose1.position.y = 0
+        pose1.position.z = 0.2
+        pose1.orientation = Quaternion(1, 0, 0, 0)
+
+        pose2 = Pose()
+        pose2.position.x = 0.5
+        pose2.position.y = 0.1
+        pose2.position.z = 0.2
+        pose2.orientation = Quaternion(1, 0, 0, 0)
+
+        offset_z_position = copy.deepcopy(pose1)
+        offset_z_position.position.z += .1
+
+        self.add_trajectory('arm', 'pose', offset_z_position)
+        self.add_trajectory('arm', 'pose', pose1, 'lin')
+        self.add_trajectory('arm', 'pose', pose2, 'lin')
+        self.add_trajectory('arm', 'pose', pose1, 'lin')
+        self.add_trajectory('arm', 'pose', offset_z_position)
 
 def start():
-    pick_and_place = UnityPickAndPlaceRTA()
-    pick_and_place.start_server()
+    pick_and_place = Test()
+    pick_and_place.start()
 
 if __name__ == "__main__":
     start()
